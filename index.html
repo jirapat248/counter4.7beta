@@ -1,0 +1,438 @@
+<!DOCTYPE html>
+<html lang="th">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Kratom Counter Dashboard (Global Live & Logs)</title>
+  
+  <!-- นำเข้า Google Font "Kanit" เพิ่มความโมเดิร์นแบบไทย -->
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Kanit:wght@300;400;600;700&display=swap" rel="stylesheet">
+  
+  <!-- Firebase Web SDK v8 -->
+  <script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-app.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-database.js"></script>
+
+  <style>
+    /* --- CSS สไตล์คุมโทน ดำ-เขียว ตามหน้าเว็บเดิมของคุณจิรภัทร์ --- */
+    * {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0;
+      font-family: 'Kanit', sans-serif;
+    }
+
+    body {
+      background-color: #141414;
+      color: #ffffff;
+      padding: 20px 10px;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      min-height: 100vh;
+    }
+
+    /* ส่วนหัวเว็บ (Header) */
+    .header-container {
+      text-align: center;
+      margin-bottom: 25px;
+    }
+
+    .header-title {
+      color: #4caf50;
+      font-size: 1.8rem;
+      font-weight: 700;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 10px;
+    }
+
+    .header-subtitle {
+      color: #888;
+      font-size: 0.9rem;
+      letter-spacing: 1.5px;
+      margin-top: 5px;
+      font-weight: 600;
+    }
+
+    /* ตัวเลือก Drop-down เลือกดูประวัติ Lap */
+    .selector-container {
+      margin-bottom: 20px;
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      background: #1c1c1c;
+      padding: 8px 15px;
+      border-radius: 8px;
+      border: 1px solid #2e2e2e;
+    }
+
+    .selector-container label {
+      color: #4caf50;
+      font-weight: 600;
+      font-size: 0.95rem;
+    }
+
+    .selector-container select {
+      background-color: #121212;
+      color: #ffffff;
+      border: 1px solid #4caf50;
+      padding: 6px 12px;
+      border-radius: 5px;
+      outline: none;
+      font-size: 0.9rem;
+      cursor: pointer;
+      font-family: 'Kanit', sans-serif;
+    }
+
+    /* การ์ดสถิติรวมของวง (Total Rounds Card) */
+    .dashboard-card {
+      background-color: #1c1c1c;
+      border: 1px solid #2e2e2e;
+      border-radius: 12px;
+      width: 100%;
+      max-width: 500px;
+      padding: 20px;
+      text-align: center;
+      box-shadow: 0 4px 15px rgba(0, 0, 0, 0.5);
+      margin-bottom: 25px;
+    }
+
+    .card-title {
+      color: #888;
+      font-size: 0.85rem;
+      letter-spacing: 1px;
+      text-transform: uppercase;
+      margin-bottom: 10px;
+    }
+
+    .total-rounds {
+      color: #ffa500;
+      font-size: 4rem;
+      font-weight: 700;
+      line-height: 1;
+      margin-bottom: 10px;
+    }
+
+    .active-status {
+      color: #ffffff;
+      font-size: 0.95rem;
+    }
+
+    .active-status span {
+      color: #4caf50;
+      font-weight: 700;
+    }
+
+    /* ตารางแสดงรายชื่อเพื่อน 14 คน */
+    .table-container {
+      width: 100%;
+      max-width: 500px;
+      background-color: #1c1c1c;
+      border-radius: 12px;
+      border: 1px solid #2e2e2e;
+      overflow: hidden;
+      box-shadow: 0 4px 15px rgba(0, 0, 0, 0.5);
+      margin-bottom: 25px;
+    }
+
+    table {
+      width: 100%;
+      border-collapse: collapse;
+      text-align: left;
+    }
+
+    th {
+      background-color: #242424;
+      color: #888;
+      font-size: 0.85rem;
+      font-weight: 600;
+      padding: 12px 15px;
+      border-bottom: 1px solid #2e2e2e;
+    }
+
+    th.col-right, td.col-right {
+      text-align: right;
+    }
+
+    th.col-center, td.col-center {
+      text-align: center;
+    }
+
+    td {
+      padding: 14px 15px;
+      border-bottom: 1px solid #1a1a1a;
+      font-size: 0.95rem;
+    }
+
+    tr:last-child td {
+      border-bottom: none;
+    }
+
+    .status-badge {
+      display: inline-block;
+      padding: 3px 10px;
+      border-radius: 20px;
+      font-size: 0.75rem;
+      font-weight: 700;
+      min-width: 48px;
+    }
+
+    .status-badge.on { background-color: #2e7d32; color: #ffffff; }
+    .status-badge.off { background-color: #c62828; color: #ffffff; }
+
+    .score-text {
+      color: #4caf50;
+      font-weight: 700;
+      font-size: 1.1rem;
+    }
+
+    /* 📜 โซนแสดง History Log ด้านล่างตารางหลัก */
+    .log-container {
+      width: 100%;
+      max-width: 500px;
+      background-color: #1c1c1c;
+      border-radius: 12px;
+      border: 1px solid #2e2e2e;
+      padding: 15px;
+      box-shadow: 0 4px 15px rgba(0, 0, 0, 0.5);
+    }
+
+    .log-header {
+      color: #4caf50;
+      font-size: 1rem;
+      font-weight: 600;
+      margin-bottom: 12px;
+      border-bottom: 1px solid #2e2e2e;
+      padding-bottom: 5px;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+    }
+
+    .log-list {
+      max-height: 200px;
+      overflow-y: auto;
+      list-style: none;
+    }
+
+    .log-item {
+      font-size: 0.85rem;
+      padding: 6px 8px;
+      border-bottom: 1px solid #242424;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+    }
+
+    .log-item:last-child {
+      border-bottom: none;
+    }
+
+    .log-time {
+      color: #888;
+      font-weight: 300;
+      margin-right: 10px;
+    }
+
+    .log-text {
+      color: #e0e0e0;
+      flex-grow: 1;
+    }
+
+    /* ปรับแต่ง Scrollbar ของกล่องล็อกให้ดูเนียนตา */
+    .log-list::-webkit-scrollbar {
+      width: 6px;
+    }
+    .log-list::-webkit-scrollbar-track {
+      background: #141414;
+    }
+    .log-list::-webkit-scrollbar-thumb {
+      background: #4caf50;
+      border-radius: 3px;
+    }
+  </style>
+</head>
+<body>
+
+  <!-- 1. ส่วนหัวเว็บไซต์ -->
+  <div class="header-container">
+    <div class="header-title">🌿 Kratom Counter (Cloud Live) 🌿</div>
+    <div class="header-subtitle">YENCHAM GANG OFFICIAL</div>
+  </div>
+
+  <!-- 2. Drop-down เลือก Lap -->
+  <div class="selector-container">
+    <label for="lapSelect">เลือกรอบต้ม:</label>
+    <select id="lapSelect">
+      <option value="">🔄 กำลังเชื่อมต่อข้อมูล...</option>
+    </select>
+  </div>
+
+  <!-- 3. การ์ดสรุปแต้มวงน้ำปัจจุบัน -->
+  <div class="dashboard-card">
+    <div class="card-title">TOTAL ROUNDS</div>
+    <div id="totalRounds" class="total-rounds">0</div>
+    <div class="active-status">กำลังงานอยู่: <span id="activeCount">0</span> คน</div>
+  </div>
+
+  <!-- 4. ตารางประวัติรายชื่อเพื่อน 14 คน -->
+  <div class="table-container">
+    <table>
+      <thead>
+        <tr>
+          <th>รายชื่อนักวนน้ำ</th>
+          <th class="col-center">สถานะ</th>
+          <th class="col-right">จำนวนที่เข้าสู่ร่างกาย</th>
+        </tr>
+      </thead>
+      <tbody id="playerTableBody"></tbody>
+    </table>
+  </div>
+
+  <!-- 📜 5. โซนแสดงประวัติกิจกรรมย้อนหลัง (History Log) สลักแสตมป์เวลา -->
+  <div class="log-container">
+    <div class="log-header">
+      <span>HISTORY LOGS (กิจกรรมในรอบ)</span>
+    </div>
+    <ul id="logList" class="log-list">
+      <li class="log-item" style="color: #888; justify-content: center;">ไม่มีกิจกรรมในขณะนี้</li>
+    </ul>
+  </div>
+
+  <script>
+    // --- บรรทัด configuration นำค่าหลังบ้านของคุณจิรภัทร์มาใส่ที่นี่ ---
+    const firebaseConfig = {
+      apiKey: "AIzaSyDH6eblmaTewv8Rj7nYGx5LqcvUnAtY1do",
+      authDomain: "yc37counter-v5.firebaseapp.com",
+      databaseURL: "https://yc37counter-v5-default-rtdb.asia-southeast1.firebasedatabase.app",
+      projectId: "yc37counter-v5",
+      storageBucket: "yc37counter-v5.firebasestorage.app",
+      messagingSenderId: "1005210899839",
+      appId: "1:1005210899839:web:a6c74004e3894b5cbe764a"
+    };
+
+    firebase.initializeApp(firebaseConfig);
+    const db = firebase.database();
+
+    let activeLapRef = null;
+    let activeLogsRef = null;
+    let initialized = false;
+
+    function initApp() {
+      const lapsRef = db.ref("laps");
+      lapsRef.on("value", (snapshot) => {
+        const laps = snapshot.val();
+        if (!laps) return;
+
+        const select = document.getElementById("lapSelect");
+        const keys = Object.keys(laps).sort();
+        const latestKey = keys[keys.length - 1];
+        const selectedValueBeforeUpdate = select.value;
+
+        select.innerHTML = "";
+        keys.reverse().forEach(key => {
+          const option = document.createElement("option");
+          option.value = key;
+          const cleanName = key.replace("lap_", "Lap ").split("_")[0];
+          option.textContent = cleanName;
+          select.appendChild(option);
+        });
+
+        if (!initialized) {
+          select.value = latestKey;
+          listenToLap(latestKey);
+          initialized = true;
+        } else {
+          select.value = selectedValueBeforeUpdate || latestKey;
+        }
+      });
+    }
+
+    function listenToLap(lapKey) {
+      // เคลียร์การดึงข้อมูลตัวเก่าออกก่อน
+      if (activeLapRef) activeLapRef.off();
+      if (activeLogsRef) activeLogsRef.off();
+      
+      document.getElementById("logList").innerHTML = "";
+
+      // 1. ดึงข้อมูล Dashboard และตารางรายชื่อผู้เล่น 14 คน
+      activeLapRef = db.ref(`laps/${lapKey}`);
+      activeLapRef.on("value", (snapshot) => {
+        const lapData = snapshot.val();
+        if (!lapData) return;
+
+        document.getElementById("totalRounds").textContent = lapData.globalRound || 0;
+
+        let activeCounter = 0;
+        const tbody = document.getElementById("playerTableBody");
+        tbody.innerHTML = "";
+
+        if (lapData.players) {
+          lapData.players.forEach((player) => {
+            if (!player) return;
+
+            const isActive = player.isActive;
+            if (isActive) activeCounter++;
+
+            const tr = document.createElement("tr");
+
+            const tdName = document.createElement("td");
+            tdName.textContent = player.name;
+            tr.appendChild(tdName);
+
+            const tdStatus = document.createElement("td");
+            tdStatus.className = "col-center";
+            const badge = document.createElement("span");
+            badge.className = `status-badge ${isActive ? 'on' : 'off'}`;
+            badge.textContent = isActive ? "ON" : "OFF";
+            tdStatus.appendChild(badge);
+            tr.appendChild(tdStatus);
+
+            const tdScore = document.createElement("td");
+            tdScore.className = "col-right score-text";
+            tdScore.textContent = player.count || 0;
+            tr.appendChild(tdScore);
+
+            tbody.appendChild(tr);
+          });
+        }
+        document.getElementById("activeCount").textContent = activeCounter;
+      });
+
+      // 📜 2. ดึงข้อมูลประวัติกิจกรรมแบบถาวร (Permanent Logs) จาก Firebase
+      activeLogsRef = db.ref(`laps/${lapKey}/logs`);
+      // สั่งดึงข้อมูลและคอยฟังการเพิ่มขึ้นของ logs ใหม่ ๆ
+      activeLogsRef.on("value", (snapshot) => {
+        const logsData = snapshot.val();
+        const logList = document.getElementById("logList");
+        logList.innerHTML = "";
+
+        if (!logsData) {
+          logList.innerHTML = `<li class="log-item" style="color: #888; justify-content: center;">ไม่มีกิจกรรมในขณะนี้</li>`;
+          return;
+        }
+
+        // แปลงออบเจกต์ประวัติกิจกรรมให้อยู่ในรูปแบบ Array และเรียงเวลาล่าสุดขึ้นก่อน (Newest First)
+        const sortedLogs = Object.keys(logsData).map(key => logsData[key]).sort((a, b) => b.timestamp - a.timestamp);
+
+        sortedLogs.forEach(log => {
+          const timeStr = new Date(log.timestamp).toLocaleTimeString('th-TH', { hour: '2-digit', minute: '2-digit', second: '2-digit' });
+          const li = document.createElement("li");
+          li.className = "log-item";
+          li.innerHTML = `<span class="log-time">[${timeStr}]</span><span class="log-text">${log.text}</span>`;
+          logList.appendChild(li);
+        });
+      });
+    }
+
+    document.getElementById("lapSelect").addEventListener("change", (e) => {
+      if (e.target.value) listenToLap(e.target.value);
+    });
+
+    initApp();
+  </script>
+</body>
+</html>
